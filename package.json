@@ -1,0 +1,10 @@
+{
+  "name": "escudos-do-brasil-ranking",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Jogo mobile-first de escudos de clubes brasileiros com ranking online no Netlify",
+  "dependencies": {
+    "@netlify/blobs": "latest"
+  }
+}
