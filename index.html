@@ -417,9 +417,8 @@
     @media (max-width: 1200px) {
       .layout { grid-template-columns: 1fr; }
       .stats-panel { order: 3; }
-      .map-wrap { order: 2; }
-      .clubs-panel { order: 1; }
-      .map-stage { min-height: 760px; }
+      .input-wrap { order: 2; }
+      .clubs-panel { order: 1; flex-shrink: 0; }
     }
 
     @media (max-width: 720px) {
@@ -431,10 +430,6 @@
       .btn-row button { flex: 1 1 100%; }
       .club-card { grid-template-columns: 64px 1fr; }
       .crest { width: 64px; height: 64px; border-radius: 14px; }
-      .map-stage { min-height: 0; padding: 10px; }
-      .map-stage::before { content: "Toque em um escudo e depois no estado correspondente"; font-size: .8rem; }
-      .map-scroll { max-height: 72vh; }
-      .map-svg { width: 620px; min-width: 620px; }
       .state-label { font-size: 20px; }
       .state-name { font-size: .92rem; }
       .modal { padding: 18px; }
