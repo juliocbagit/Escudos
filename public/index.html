@@ -440,11 +440,10 @@
   <div class="app">
     <section class="hero">
       <div>
-        <h1>Você conhece esses escudos?</h1>
+        <h1>De que estado é esse time?</h1>
       </div>
       <div class="btn-row">
-        <button class="primary" id="newGameBtn">Novo jogo</button>
-        <button class="secondary" id="restartBtn">Reiniciar campanha</button>
+        <button class="primary" id="restartBtn">Iniciar campanha</button>
       </div>
     </section>
 
@@ -495,9 +494,7 @@
       <aside class="panel clubs-panel">
         <h2>Escudos da rodada</h2>
         <div class="clubs-grid" id="clubsGrid"></div>
-        <div class="footnote">
-          A lista do jogo foi atualizada para incluir todos os 153 clubes da Série A, B, C e Copa do Brasil 2026. As competições agora usam todo o conjunto, sem repetição de escudos dentro da mesma partida.
-        </div>
+        <div class="footnote"></div>
       </aside>
     </section>
   </div>
@@ -885,7 +882,6 @@
       submitStateBtn: document.getElementById('submitStateBtn'),
       hoveredStateName: document.getElementById('hoveredStateName'),
       log: document.getElementById('log'),
-      newGameBtn: document.getElementById('newGameBtn'),
       restartBtn: document.getElementById('restartBtn'),
       debugNamesToggle: document.getElementById('debugNamesToggle'),
       modal: document.getElementById('continueModal'),
@@ -1523,7 +1519,6 @@
       updateStats();
     }
 
-    els.newGameBtn.addEventListener('click', startNewGame);
     els.restartBtn.addEventListener('click', startNewGame);
     els.continueBtn.addEventListener('click', proceedToNextRound);
     els.stopBtn.addEventListener('click', stopCampaign);
