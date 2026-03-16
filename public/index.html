@@ -423,7 +423,7 @@
 
     @media (max-width: 720px) {
       body { overflow-x: hidden; }
-      .app { padding: 12px; gap: 12px; padding-bottom: 110px; }
+      .app { padding: 12px; gap: 12px; }
       .hero, .panel { padding-left: 14px; padding-right: 14px; }
       .hero h1 { font-size: 1.45rem; }
       .btn-row { width: 100%; }
@@ -433,31 +433,6 @@
       .state-label { font-size: 20px; }
       .state-name { font-size: .92rem; }
       .modal { padding: 18px; }
-
-      /* Input fixo em baixo no mobile */
-      .layout { display: flex; flex-direction: column; }
-      .clubs-panel { order: 1; }
-      .stats-panel { order: 3; }
-      .input-wrap {
-        order: 2;
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        z-index: 40;
-        border-radius: 0;
-        border-left: none;
-        border-right: none;
-        border-bottom: none;
-        background: linear-gradient(180deg, #0d1e30, #09182a);
-        padding: 10px 16px 14px;
-        box-shadow: 0 -4px 20px rgba(0,0,0,.4);
-      }
-      .input-wrap h2 { display: none; }
-      .input-stage { flex-direction: row; gap: 8px; min-height: unset; }
-      .input-stage h3 { display: none; }
-      .input-stage input { flex: 1; padding: 10px 14px; font-size: 1.1rem; }
-      .input-stage button { white-space: nowrap; padding: 10px 18px; }
     }
   </style>
 </head>
