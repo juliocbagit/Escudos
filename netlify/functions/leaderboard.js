@@ -2,7 +2,8 @@ import { getStore } from "@netlify/blobs";
 
 const STORE_NAME = "escudos-do-brasil-recordes";
 const SERIES_RANK = { D: 1, C: 2, B: 3, A: 4 };
-const MAX_SCORE_ABS = 31;
+const MAX_SCORE_ABS = 200;
+const MAX_ROUND = 200;
 
 function json(data, init = {}) {
   const headers = new Headers(init.headers || {});
@@ -25,12 +26,63 @@ function slugify(value = "") {
     .slice(0, 40);
 }
 
+function numeric(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function normalizeSeries(value = "") {
+  const series = String(value || "").toUpperCase();
+  return Object.hasOwn(SERIES_RANK, series) ? series : "D";
+}
+
+function titleLabel(titles = 0) {
+  if (titles <= 0) return "";
+  if (titles === 1) return "Campeão";
+  if (titles === 2) return "Bicampeão";
+  if (titles === 3) return "Tricampeão";
+  return `${titles}x campeão`;
+}
+
+function stageWeight(entry) {
+  const titles = numeric(entry?.titles, 0);
+  if (titles > 0) return 1000 + titles;
+  return SERIES_RANK[normalizeSeries(entry?.bestSeries || entry?.lastSeries || "D")] || 0;
+}
+
+function displayStage(entry) {
+  const titles = numeric(entry?.titles, 0);
+  if (titles > 0) return titleLabel(titles);
+  return `Série ${normalizeSeries(entry?.bestSeries || entry?.lastSeries || "D")}`;
+}
+
 function compareEntries(a, b) {
-  if (b.bestScore !== a.bestScore) return b.bestScore - a.bestScore;
-  const rankDiff = (SERIES_RANK[b.bestSeries] || 0) - (SERIES_RANK[a.bestSeries] || 0);
-  if (rankDiff !== 0) return rankDiff;
-  if ((a.bestRound || 0) !== (b.bestRound || 0)) return (a.bestRound || 0) - (b.bestRound || 0);
+  const stageDiff = stageWeight(b) - stageWeight(a);
+  if (stageDiff !== 0) return stageDiff;
+
+  const pointsDiff = numeric(b.totalPoints, numeric(b.bestScore, numeric(b.lastScore, 0))) - numeric(a.totalPoints, numeric(a.bestScore, numeric(a.lastScore, 0)));
+  if (pointsDiff !== 0) return pointsDiff;
+
+  const scoreDiff = numeric(b.lastScore, 0) - numeric(a.lastScore, 0);
+  if (scoreDiff !== 0) return scoreDiff;
+
   return String(a.displayName).localeCompare(String(b.displayName), "pt-BR", { sensitivity: "base" });
+}
+
+function normalizeExisting(entry = {}) {
+  return {
+    slug: entry.slug || "",
+    displayName: sanitizeName(entry.displayName || ""),
+    bestSeries: normalizeSeries(entry.bestSeries || entry.lastSeries || "D"),
+    titles: numeric(entry.titles, 0),
+    totalPoints: numeric(entry.totalPoints, numeric(entry.bestScore, numeric(entry.lastScore, 0))),
+    gamesPlayed: numeric(entry.gamesPlayed, 0),
+    bestAt: entry.bestAt || entry.lastAt || null,
+    lastScore: numeric(entry.lastScore, numeric(entry.bestScore, 0)),
+    lastSeries: normalizeSeries(entry.lastSeries || entry.bestSeries || "D"),
+    lastRound: numeric(entry.lastRound, numeric(entry.bestRound, 1)),
+    lastAt: entry.lastAt || entry.bestAt || null,
+  };
 }
 
 async function getLeaderboard(store) {
@@ -49,17 +101,24 @@ async function getLeaderboard(store) {
     }),
   );
 
-  const valid = records.filter((entry) => entry && typeof entry.bestScore === "number" && entry.displayName);
+  const valid = records
+    .filter((entry) => entry && sanitizeName(entry.displayName || ""))
+    .map((entry) => normalizeExisting(entry));
+
   valid.sort(compareEntries);
 
   return {
     leaderboard: valid.slice(0, 10).map((entry) => ({
       displayName: entry.displayName,
-      bestScore: entry.bestScore,
+      displayStage: displayStage(entry),
       bestSeries: entry.bestSeries,
-      bestRound: entry.bestRound,
-      bestAt: entry.bestAt,
+      titles: entry.titles,
+      totalPoints: entry.totalPoints,
       gamesPlayed: entry.gamesPlayed || 1,
+      lastScore: entry.lastScore,
+      lastSeries: entry.lastSeries,
+      lastRound: entry.lastRound,
+      lastAt: entry.lastAt,
     })),
     totalPlayers: valid.length,
   };
@@ -87,8 +146,9 @@ export default async (req) => {
   const displayName = sanitizeName(body?.name || "");
   const slug = slugify(displayName);
   const score = Number(body?.score);
-  const bestSeries = String(body?.series || "").toUpperCase();
-  const bestRound = Number(body?.round || 0);
+  const series = normalizeSeries(body?.series || "D");
+  const round = Number(body?.round || 0);
+  const isChampion = Boolean(body?.isChampion);
 
   if (!displayName || !slug) {
     return json({ error: "Nome inválido." }, { status: 400 });
@@ -96,42 +156,42 @@ export default async (req) => {
   if (!Number.isInteger(score) || Math.abs(score) > MAX_SCORE_ABS) {
     return json({ error: "Pontuação inválida." }, { status: 400 });
   }
-  if (!Object.hasOwn(SERIES_RANK, bestSeries)) {
-    return json({ error: "Série inválida." }, { status: 400 });
-  }
-  if (!Number.isInteger(bestRound) || bestRound < 1 || bestRound > MAX_SCORE_ABS) {
+  if (!Number.isInteger(round) || round < 1 || round > MAX_ROUND) {
     return json({ error: "Rodada inválida." }, { status: 400 });
   }
 
   const key = `players/${slug}.json`;
-  const existing = await store.get(key, { type: "json", consistency: "strong" });
+  const existingRaw = await store.get(key, { type: "json", consistency: "strong" });
+  const existing = normalizeExisting(existingRaw || {});
   const now = new Date().toISOString();
 
-  const currentBestScore = existing?.bestScore ?? Number.NEGATIVE_INFINITY;
-  const currentBestSeriesRank = SERIES_RANK[existing?.bestSeries] || 0;
-  const incomingSeriesRank = SERIES_RANK[bestSeries];
-
-  const isNewBest =
-    !existing ||
-    score > currentBestScore ||
-    (score === currentBestScore && incomingSeriesRank > currentBestSeriesRank) ||
-    (score === currentBestScore && incomingSeriesRank === currentBestSeriesRank && bestRound < (existing?.bestRound || Number.MAX_SAFE_INTEGER));
+  const incomingSeriesRank = SERIES_RANK[series];
+  const existingSeriesRank = SERIES_RANK[existing.bestSeries] || 0;
+  const updatedTitles = existing.titles + (isChampion ? 1 : 0);
 
   const record = {
     slug,
     displayName,
-    bestScore: isNewBest ? score : existing.bestScore,
-    bestSeries: isNewBest ? bestSeries : existing.bestSeries,
-    bestRound: isNewBest ? bestRound : existing.bestRound,
-    bestAt: isNewBest ? now : existing.bestAt,
-    gamesPlayed: (existing?.gamesPlayed || 0) + 1,
+    bestSeries: incomingSeriesRank > existingSeriesRank ? series : existing.bestSeries,
+    titles: updatedTitles,
+    totalPoints: existing.totalPoints + score,
+    gamesPlayed: existing.gamesPlayed + 1,
+    bestAt: existing.bestAt || now,
     lastScore: score,
-    lastSeries: bestSeries,
-    lastRound: bestRound,
+    lastSeries: series,
+    lastRound: round,
     lastAt: now,
   };
 
   await store.setJSON(key, record);
   const payload = await getLeaderboard(store);
-  return json({ ...payload, isNewBest }, { status: 200 });
+  return json({
+    ...payload,
+    updatedRecord: {
+      displayName: record.displayName,
+      displayStage: displayStage(record),
+      totalPoints: record.totalPoints,
+      titles: record.titles,
+    },
+  }, { status: 200 });
 };
