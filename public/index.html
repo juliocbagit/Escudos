@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Escudos no Mapa do Brasil</title>
+  <title>Geografia da Bola</title>
   <style>
     :root {
       --bg: #07111b;
@@ -424,7 +424,7 @@
       .clubs-panel { order: 1; flex-shrink: 0; }
     }
 
-    @media (max-width: 720px) {
+    @media (max-width: 900px) {
       body { overflow-x: hidden; }
       .app { padding: 12px; gap: 12px; }
       .hero, .panel { padding-left: 14px; padding-right: 14px; }
@@ -441,14 +441,37 @@
       .selected-crest-preview { display: flex; justify-content: center; margin-bottom: 8px; }
       .selected-crest-preview img { width: 72px; height: 72px; object-fit: contain; border-radius: 12px; border: 2px solid rgba(255,255,255,.15); background: rgba(0,0,0,.2); padding: 4px; }
 
-      /* Painel de input compacto no mobile */
-      .input-wrap { padding: 10px 14px; }
+      /* Painel de input compacto no mobile - sem caixa visual */
+      .input-wrap {
+        padding: 10px 14px;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+      }
       .input-wrap h2 { display: none; }
-      .input-stage { flex-direction: row; gap: 8px; min-height: unset; }
+      .input-stage input {
+        flex: 1 1 60px !important;
+        min-width: 60px;
+        max-width: none;
+        width: auto;
+        padding: 8px 10px;
+        font-size: 1rem;
+      }
+      .input-stage button {
+        flex: 0 0 auto;
+        width: auto;
+        max-width: none;
+        white-space: nowrap;
+        padding: 8px 12px;
+        font-size: .9rem;
+      }
+      .input-stage { flex-direction: row; gap: 6px; min-height: unset; }
       .input-stage h3 { display: none; }
-      .input-stage input { flex: 1; padding: 10px 14px; font-size: 1.1rem; }
-      .input-stage button { white-space: nowrap; padding: 10px 18px; }
-      .state-name { margin-top: 6px; }
+      .state-name { display: none; }
+
+      /* Grid de escudos: 1 coluna no mobile */
+      .clubs-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -456,7 +479,7 @@
   <div class="app">
     <section class="hero">
       <div>
-        <h1>De que estado é esse time?</h1>
+        <h1>Qual é o estado desses times?</h1>
       </div>
       <div class="btn-row">
         <button class="primary" id="restartBtn">Iniciar campanha</button>
@@ -498,7 +521,6 @@
       </aside>
 
       <main class="panel input-wrap">
-        <h2>Adivinhe o Estado</h2>
         <div class="selected-crest-preview" id="selectedCrestPreview" style="display:none">
           <img id="previewImg" src="" alt="Escudo selecionado">
         </div>
@@ -1289,10 +1311,12 @@
       return club.crest ? `Nome oculto até a tentativa.` : `Escudo pendente. Sigla provisória em uso.`;
     }
 
+    function isMobile() { return window.matchMedia('(max-width: 900px)').matches; }
+
     function renderClubs() {
       els.clubsGrid.innerHTML = '';
-      const pageStart = game.crestPage * 2;
-      const pageClubs = game.currentClubs.slice(pageStart, pageStart + 2);
+      const pageStart = isMobile() ? game.crestPage * 2 : 0;
+      const pageClubs = isMobile() ? game.currentClubs.slice(pageStart, pageStart + 2) : game.currentClubs;
       pageClubs.forEach((club, pageIdx) => {
         const index = pageStart + pageIdx;
         const card = document.createElement('div');
@@ -1355,14 +1379,14 @@
     }
 
     function selectNextClub() {
-      const pageStart = game.crestPage * 2;
-      const pageEnd = pageStart + 2;
+      const pageStart = isMobile() ? game.crestPage * 2 : 0;
+      const pageEnd = isMobile() ? pageStart + 2 : game.currentClubs.length;
       const nextClub = game.currentClubs.slice(pageStart, pageEnd).find(c => !c.resolved);
       if (nextClub) {
         game.selectedClubId = nextClub.roundId;
         els.stateInput.disabled = false;
         els.submitStateBtn.disabled = false;
-        els.hoveredStateName.textContent = 'Escudo Automático.';
+        els.hoveredStateName.textContent = '';
         // Atualizar preview do escudo selecionado
         const crestSrc = CRESTS[nextClub.crestKey];
         if (crestSrc) {
@@ -1407,17 +1431,24 @@
 
       els.stateInput.value = '';
 
-      // Check if both crests on current page are resolved → advance page
-      const pageStart = game.crestPage * 2;
-      const pageClubs = game.currentClubs.slice(pageStart, pageStart + 2);
-      const pageAllResolved = pageClubs.every(c => c.resolved);
-      const hasNextPage = (game.crestPage + 1) * 2 < game.currentClubs.length;
+      // Check if both crests on current page are resolved → advance page (mobile only)
+      if (isMobile()) {
+        const pageStart = game.crestPage * 2;
+        const pageClubs = game.currentClubs.slice(pageStart, pageStart + 2);
+        const pageAllResolved = pageClubs.every(c => c.resolved);
+        const hasNextPage = (game.crestPage + 1) * 2 < game.currentClubs.length;
 
-      if (pageAllResolved && hasNextPage) {
-        game.crestPage += 1;
-        updateStats();
-        selectNextClub();
-        return;
+        if (pageAllResolved && hasNextPage) {
+          renderClubs(); // mostra o resultado (verde/vermelho) antes de avançar
+          updateStats();
+          setTimeout(() => {
+            game.crestPage += 1;
+            renderClubs();
+            selectNextClub();
+            updateStats();
+          }, 1500);
+          return;
+        }
       }
 
       selectNextClub();
@@ -1582,6 +1613,13 @@
     setupInputListeners();
     loadLeaderboard();
     startNewGame();
+
+    // Re-renderiza ao redimensionar janela (útil no DevTools e ao rotacionar celular)
+    window.addEventListener('resize', () => {
+      if (game.currentClubs.length > 0 && !game.isOver) {
+        renderClubs();
+      }
+    });
   </script>
 </body>
 </html>
