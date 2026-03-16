@@ -414,6 +414,9 @@
       border-radius: 8px;
     }
 
+    /* Preview do escudo selecionado — oculto no desktop */
+    .selected-crest-preview { display: none; }
+
     @media (max-width: 1200px) {
       .layout { grid-template-columns: 1fr; }
       .stats-panel { order: 3; }
@@ -433,6 +436,10 @@
       .state-label { font-size: 20px; }
       .state-name { font-size: .92rem; }
       .modal { padding: 18px; }
+
+      /* Preview do escudo no mobile */
+      .selected-crest-preview { display: flex; justify-content: center; margin-bottom: 8px; }
+      .selected-crest-preview img { width: 72px; height: 72px; object-fit: contain; border-radius: 12px; border: 2px solid rgba(255,255,255,.15); background: rgba(0,0,0,.2); padding: 4px; }
 
       /* Painel de input compacto no mobile */
       .input-wrap { padding: 10px 14px; }
@@ -492,6 +499,9 @@
 
       <main class="panel input-wrap">
         <h2>Adivinhe o Estado</h2>
+        <div class="selected-crest-preview" id="selectedCrestPreview" style="display:none">
+          <img id="previewImg" src="" alt="Escudo selecionado">
+        </div>
         <div class="input-stage" id="inputStage">
           <h3>Digite a sigla do estado do escudo selecionado:</h3>
           <input type="text" id="stateInput" placeholder="Ex: SP, RJ..." maxlength="2" disabled>
@@ -894,6 +904,8 @@
       log: document.getElementById('log'),
       restartBtn: document.getElementById('restartBtn'),
       debugNamesToggle: document.getElementById('debugNamesToggle'),
+      selectedCrestPreview: document.getElementById('selectedCrestPreview'),
+      previewImg: document.getElementById('previewImg'),
       modal: document.getElementById('continueModal'),
       modalTitle: document.getElementById('modalTitle'),
       modalMessage: document.getElementById('modalMessage'),
@@ -1351,12 +1363,21 @@
         els.stateInput.disabled = false;
         els.submitStateBtn.disabled = false;
         els.hoveredStateName.textContent = 'Escudo Automático.';
+        // Atualizar preview do escudo selecionado
+        const crestSrc = CRESTS[nextClub.crestKey];
+        if (crestSrc) {
+          els.previewImg.src = crestSrc;
+          els.selectedCrestPreview.style.display = 'flex';
+        } else {
+          els.selectedCrestPreview.style.display = 'none';
+        }
         setTimeout(() => els.stateInput.focus(), 10);
       } else {
         game.selectedClubId = null;
         els.stateInput.disabled = true;
         els.submitStateBtn.disabled = true;
         els.hoveredStateName.textContent = 'Aguardando rodada...';
+        els.selectedCrestPreview.style.display = 'none';
       }
     }
 
