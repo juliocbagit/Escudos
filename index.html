@@ -1337,6 +1337,22 @@
       return game.currentClubs.find(club => club.roundId === game.selectedClubId);
     }
 
+    function selectNextClub() {
+      const nextClub = game.currentClubs.find(c => !c.resolved);
+      if (nextClub) {
+        game.selectedClubId = nextClub.roundId;
+        els.stateInput.disabled = false;
+        els.submitStateBtn.disabled = false;
+        els.hoveredStateName.textContent = 'Escudo Automático.';
+        setTimeout(() => els.stateInput.focus(), 10);
+      } else {
+        game.selectedClubId = null;
+        els.stateInput.disabled = true;
+        els.submitStateBtn.disabled = true;
+        els.hoveredStateName.textContent = 'Aguardando rodada...';
+      }
+    }
+
     function handleStateSubmit(uf) {
       if (game.isOver) return;
       const club = selectedClub();
@@ -1361,12 +1377,8 @@
         setStatus(`<strong>Erro.</strong> O escudo era do <strong>${club.name}</strong>. O estado correto é ${STATES[club.state].name} (${club.state}).`);
       }
 
-      game.selectedClubId = null;
       els.stateInput.value = '';
-      els.stateInput.disabled = true;
-      els.submitStateBtn.disabled = true;
-      els.hoveredStateName.textContent = 'Aguardando seleção do escudo...';
-
+      selectNextClub();
       updateStats();
 
       if (game.currentClubs.every(item => item.resolved)) {
@@ -1473,6 +1485,7 @@
         );
       } else {
         setStatus(`Nova rodada iniciada na ${getSeriesName(nextSeries, champs)}. Selecione um escudo e digite a sigla correspondente.`);
+        selectNextClub();
       }
       updateStats();
     }
@@ -1511,6 +1524,7 @@
       closeModal();
       closeSaveModal();
       setStatus('Campanha iniciada! Série D. Selecione um escudo e digite a sigla do estado.');
+      selectNextClub();
       updateStats();
     }
 
