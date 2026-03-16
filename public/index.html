@@ -909,6 +909,7 @@
       savePromptShown: false,
       pendingSavePayload: null,
       crestPage: 0,
+      sessionUsedIndices: new Set(),
     };
 
     const els = {
@@ -1135,6 +1136,8 @@
     function resetAvailablePool() {
       const pools = { A: [], B: [], C: [], COPA: [] };
       SERIES_DATA.ALL.forEach((club, index) => {
+        // Excluir times já exibidos nesta sessão
+        if (game.sessionUsedIndices.has(index)) return;
         if (pools[club.series]) {
           pools[club.series].push(index);
         }
@@ -1235,6 +1238,7 @@
       picked = shuffle(picked);
       game.crestPage = 0;
       game.usedClubIndices.push(...picked);
+      picked.forEach(idx => game.sessionUsedIndices.add(idx));
 
       game.currentClubs = picked.map((idx, i) => ({
         ...SERIES_DATA.ALL[idx],
