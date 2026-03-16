@@ -892,6 +892,7 @@
       nextRoundConfig: null,
       savePromptShown: false,
       pendingSavePayload: null,
+      crestPage: 0,
     };
 
     const els = {
@@ -1214,6 +1215,7 @@
       }
 
       picked = shuffle(picked);
+      game.crestPage = 0;
       game.usedClubIndices.push(...picked);
 
       game.currentClubs = picked.map((idx, i) => ({
@@ -1293,7 +1295,10 @@
 
     function renderClubs() {
       els.clubsGrid.innerHTML = '';
-      game.currentClubs.forEach((club, index) => {
+      const pageStart = game.crestPage * 2;
+      const pageClubs = game.currentClubs.slice(pageStart, pageStart + 2);
+      pageClubs.forEach((club, pageIdx) => {
+        const index = pageStart + pageIdx;
         const card = document.createElement('div');
         card.className = 'club-card';
         if (game.selectedClubId === club.roundId) card.classList.add('selected');
@@ -1354,7 +1359,9 @@
     }
 
     function selectNextClub() {
-      const nextClub = game.currentClubs.find(c => !c.resolved);
+      const pageStart = game.crestPage * 2;
+      const pageEnd = pageStart + 2;
+      const nextClub = game.currentClubs.slice(pageStart, pageEnd).find(c => !c.resolved);
       if (nextClub) {
         game.selectedClubId = nextClub.roundId;
         els.stateInput.disabled = false;
@@ -1394,6 +1401,20 @@
       }
 
       els.stateInput.value = '';
+
+      // Check if both crests on current page are resolved → advance page
+      const pageStart = game.crestPage * 2;
+      const pageClubs = game.currentClubs.slice(pageStart, pageStart + 2);
+      const pageAllResolved = pageClubs.every(c => c.resolved);
+      const hasNextPage = (game.crestPage + 1) * 2 < game.currentClubs.length;
+
+      if (pageAllResolved && hasNextPage) {
+        game.crestPage += 1;
+        updateStats();
+        selectNextClub();
+        return;
+      }
+
       selectNextClub();
       updateStats();
 
