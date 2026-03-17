@@ -431,8 +431,11 @@
       .hero h1 { font-size: 1.45rem; }
       .btn-row { width: 100%; }
       .btn-row button { flex: 1 1 100%; }
-      .club-card { grid-template-columns: 64px 1fr; }
-      .crest { width: 64px; height: 64px; border-radius: 14px; }
+
+      /* Área de toque maior nos cards de clube */
+      .club-card { grid-template-columns: 72px 1fr; padding: 14px 12px; min-height: 88px; }
+      .crest { width: 72px; height: 72px; border-radius: 14px; }
+
       .state-label { font-size: 20px; }
       .state-name { font-size: .92rem; }
       .modal { padding: 18px; }
@@ -450,28 +453,65 @@
         border-radius: 0;
       }
       .input-wrap h2 { display: none; }
-      .input-stage input {
-        flex: 1 1 60px !important;
-        min-width: 60px;
-        max-width: none;
-        width: auto;
-        padding: 8px 10px;
-        font-size: 1rem;
-      }
-      .input-stage button {
-        flex: 0 0 auto;
-        width: auto;
-        max-width: none;
-        white-space: nowrap;
-        padding: 8px 12px;
-        font-size: .9rem;
-      }
-      .input-stage { flex-direction: row; gap: 6px; min-height: unset; }
+
+      /* Esconder input de texto e botão — substituídos pela grade de estados */
+      .input-stage input, .input-stage button { display: none; }
+      .input-stage { min-height: unset !important; padding: 0 !important; border: none !important; background: none !important; gap: 0 !important; flex-direction: row; }
       .input-stage h3 { display: none; }
       .state-name { display: none; }
 
+      /* Grade de botões de estado (mobile) */
+      .state-btns-grid {
+        display: none;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 5px;
+        padding: 8px 0 4px;
+      }
+      .state-btns-grid.visible { display: grid; }
+      .state-btn {
+        padding: 8px 2px;
+        border-radius: 10px;
+        font-size: .78rem;
+        font-weight: 900;
+        letter-spacing: .04em;
+        background: rgba(255,255,255,.07);
+        border: 1px solid rgba(255,255,255,.13);
+        color: var(--ink);
+        min-height: 44px;
+        cursor: pointer;
+        transition: background .1s, transform .08s;
+      }
+      .state-btn:active { background: rgba(101,199,255,.25); transform: scale(.93); }
+      .state-btns-hint {
+        font-size: .78rem;
+        color: var(--muted);
+        text-align: center;
+        padding: 2px 0 6px;
+      }
+
+      /* Indicadores de página (dots) */
+      .crest-dots {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        padding: 6px 0 2px;
+      }
+      .crest-dot {
+        width: 9px; height: 9px;
+        border-radius: 50%;
+        background: rgba(255,255,255,.2);
+        transition: background .2s;
+      }
+      .crest-dot.active { background: var(--accent); }
+
       /* Grid de escudos: 1 coluna no mobile */
       .clubs-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Ocultar dots e grade de estados no desktop */
+    @media (min-width: 901px) {
+      .crest-dots { display: none; }
+      .state-btns-grid { display: none !important; }
     }
   </style>
 </head>
@@ -482,7 +522,7 @@
         <h1>Qual é o estado desses times?</h1>
       </div>
       <div class="btn-row">
-        <button class="primary" id="restartBtn">Iniciar campanha</button>
+        <button class="primary" id="restartBtn">Reiniciar campanha</button>
       </div>
     </section>
 
@@ -529,12 +569,16 @@
           <input type="text" id="stateInput" placeholder="Ex: SP, RJ..." maxlength="2" disabled>
           <button id="submitStateBtn" class="primary" disabled>Confirmar</button>
         </div>
+        <!-- Grade de estados — visível apenas no mobile -->
+        <div id="stateBtnsGrid" class="state-btns-grid"></div>
         <div class="state-name" id="hoveredStateName">Aguardando seleção do escudo...</div>
       </main>
 
       <aside class="panel clubs-panel">
         <h2>Escudos da rodada</h2>
         <div class="clubs-grid" id="clubsGrid"></div>
+        <!-- Indicadores de página — visíveis apenas no mobile -->
+        <div id="crestDots" class="crest-dots"></div>
         <div class="footnote"></div>
       </aside>
     </section>
@@ -929,6 +973,8 @@
       debugNamesToggle: document.getElementById('debugNamesToggle'),
       selectedCrestPreview: document.getElementById('selectedCrestPreview'),
       previewImg: document.getElementById('previewImg'),
+      stateBtnsGrid: document.getElementById('stateBtnsGrid'),
+      crestDots: document.getElementById('crestDots'),
       modal: document.getElementById('continueModal'),
       modalTitle: document.getElementById('modalTitle'),
       modalMessage: document.getElementById('modalMessage'),
@@ -1317,6 +1363,53 @@
 
     function isMobile() { return window.matchMedia('(max-width: 900px)').matches; }
 
+    function renderStateButtons(show) {
+      if (!isMobile()) return;
+      if (!show || !game.selectedClubId || game.isOver) {
+        els.stateBtnsGrid.classList.remove('visible');
+        return;
+      }
+      els.stateBtnsGrid.innerHTML = '';
+      els.stateBtnsGrid.classList.add('visible');
+      Object.entries(STATES).sort(([a], [b]) => a.localeCompare(b)).forEach(([uf, stateData]) => {
+        const btn = document.createElement('button');
+        btn.className = 'state-btn';
+        btn.textContent = uf;
+        btn.title = stateData.name;
+        btn.addEventListener('click', () => handleStateSubmit(uf));
+        els.stateBtnsGrid.appendChild(btn);
+      });
+    }
+
+    function setupSwipe() {
+      let touchStartX = 0;
+      let touchStartY = 0;
+      els.clubsGrid.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }, { passive: true });
+      els.clubsGrid.addEventListener('touchend', (e) => {
+        if (!isMobile()) return;
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        const dy = e.changedTouches[0].clientY - touchStartY;
+        if (Math.abs(dx) < Math.abs(dy) || Math.abs(dx) < 45) return;
+        const totalPages = Math.ceil(game.currentClubs.length / 2);
+        if (dx < 0 && game.crestPage < totalPages - 1) {
+          game.crestPage += 1;
+          game.selectedClubId = null;
+          renderStateButtons(false);
+          renderClubs();
+          selectNextClub();
+        } else if (dx > 0 && game.crestPage > 0) {
+          game.crestPage -= 1;
+          game.selectedClubId = null;
+          renderStateButtons(false);
+          renderClubs();
+          selectNextClub();
+        }
+      }, { passive: true });
+    }
+
     function renderClubs() {
       els.clubsGrid.innerHTML = '';
       const pageStart = isMobile() ? game.crestPage * 2 : 0;
@@ -1343,10 +1436,14 @@
         if (!club.resolved && !game.isOver) {
           card.addEventListener('click', () => {
             game.selectedClubId = club.roundId;
-            setStatus(`Escudo selecionado. Agora digite a sigla do estado e confirme.`);
+            setStatus(isMobile() ? `Escudo selecionado. Toque no estado abaixo.` : `Escudo selecionado. Agora digite a sigla do estado e confirme.`);
             els.stateInput.disabled = false;
             els.submitStateBtn.disabled = false;
-            els.stateInput.focus();
+            if (isMobile()) {
+              renderStateButtons(true);
+            } else {
+              els.stateInput.focus();
+            }
             els.hoveredStateName.textContent = `Escudo selecionado.`;
             renderClubs();
           });
@@ -1354,6 +1451,17 @@
 
         els.clubsGrid.appendChild(card);
       });
+
+      // Dots de paginação (mobile)
+      if (isMobile() && els.crestDots) {
+        els.crestDots.innerHTML = '';
+        const totalPages = Math.ceil(game.currentClubs.length / 2);
+        for (let i = 0; i < totalPages; i++) {
+          const dot = document.createElement('div');
+          dot.className = 'crest-dot' + (i === game.crestPage ? ' active' : '');
+          els.crestDots.appendChild(dot);
+        }
+      }
     }
 
     function updateStats() {
@@ -1399,13 +1507,18 @@
         } else {
           els.selectedCrestPreview.style.display = 'none';
         }
-        setTimeout(() => els.stateInput.focus(), 10);
+        if (isMobile()) {
+          renderStateButtons(true);
+        } else {
+          setTimeout(() => els.stateInput.focus(), 10);
+        }
       } else {
         game.selectedClubId = null;
         els.stateInput.disabled = true;
         els.submitStateBtn.disabled = true;
         els.hoveredStateName.textContent = 'Aguardando rodada...';
         els.selectedCrestPreview.style.display = 'none';
+        if (isMobile()) renderStateButtons(false);
       }
     }
 
@@ -1424,16 +1537,19 @@
       game.score += club.correct ? 1 : -1;
 
       if (club.correct) {
+        if (navigator.vibrate) navigator.vibrate(60);
         flashState(uf, 'good');
         game.log.push(`Você marcou <strong class="good">${club.name}</strong> em ${STATES[uf].name} (${uf}) e acertou.`);
         setStatus(`<strong>Acerto.</strong> O escudo era do <strong>${club.name}</strong>, do estado ${STATES[uf].name} (${uf}).`);
       } else {
+        if (navigator.vibrate) navigator.vibrate([80, 60, 80]);
         flashState(uf, 'bad');
         game.log.push(`Você marcou <strong class="bad">${club.name}</strong> em ${STATES[uf].name} (${uf}), mas o correto era ${STATES[club.state].name} (${club.state}).`);
         setStatus(`<strong>Erro.</strong> O escudo era do <strong>${club.name}</strong>. O estado correto é ${STATES[club.state].name} (${club.state}).`);
       }
 
       els.stateInput.value = '';
+      if (isMobile()) renderStateButtons(false);
 
       // Check if both crests on current page are resolved → advance page (mobile only)
       if (isMobile()) {
@@ -1615,6 +1731,7 @@
     });
 
     setupInputListeners();
+    setupSwipe();
     loadLeaderboard();
     startNewGame();
 
