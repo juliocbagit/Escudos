@@ -1825,6 +1825,7 @@
       game.savePromptShown = false;
       game.pendingSavePayload = null;
       game.easyMode = els.easyModeToggle.checked;
+      game.sessionUsedIndices = new Set();
       resetPools();
       drawRound();
       closeModal();
