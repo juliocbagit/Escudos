@@ -404,6 +404,18 @@
       border-color: rgba(101,199,255,.7);
       box-shadow: 0 0 0 3px rgba(101,199,255,.12);
     }
+    .easy-mode-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      font-size: .88rem;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+    }
+    .easy-mode-toggle input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+
     .footnote {
       color: var(--muted);
       font-size: .83rem;
@@ -532,6 +544,10 @@
       <div class="btn-row">
         <button class="primary" id="restartBtn">Reiniciar campanha</button>
       </div>
+      <label class="easy-mode-toggle">
+        <input type="checkbox" id="easyModeToggle">
+        <span>Modo amador — escudos mais fáceis primeiro</span>
+      </label>
     </section>
 
     <section class="layout">
@@ -963,6 +979,7 @@
       pendingSavePayload: null,
       crestPage: 0,
       sessionUsedIndices: new Set(),
+      easyMode: false,
     };
 
     const els = {
@@ -979,6 +996,7 @@
       hoveredStateName: document.getElementById('hoveredStateName'),
       log: document.getElementById('log'),
       restartBtn: document.getElementById('restartBtn'),
+      easyModeToggle: document.getElementById('easyModeToggle'),
       debugNamesToggle: document.getElementById('debugNamesToggle'),
       selectedCrestPreview: document.getElementById('selectedCrestPreview'),
       previewImg: document.getElementById('previewImg'),
@@ -1054,7 +1072,8 @@
           <div class="lb-score"></div>
         `;
         row.querySelector('.lb-name').textContent = entry.displayName || 'Sem nome';
-        row.querySelector('.lb-meta').textContent = `${displayStage}${gamesPlayed ? ` • ${gamesPlayed} partida(s)` : ''}`;
+        const easyTag = entry.easyMode ? ' • Modo amador' : '';
+        row.querySelector('.lb-meta').textContent = `${displayStage}${gamesPlayed ? ` • ${gamesPlayed} partida(s)` : ''}${easyTag}`;
         row.querySelector('.lb-score').textContent = `${totalPoints} pt${Math.abs(totalPoints) === 1 ? '' : 's'}`;
         els.leaderboardList.appendChild(row);
       });
@@ -1266,23 +1285,33 @@
         picked.push(...pickFromPool(type, amount, forbiddenStates));
       };
 
-      if (game.currentSeries === 'A' && game.championships >= 1) {
-        pickAndTrack('COPA', 4);
+      if (game.easyMode) {
+        // Modo amador: esgota os pools em ordem A → B → C → COPA
+        for (const pool of ['A', 'B', 'C', 'COPA']) {
+          if (game.availablePool[pool].length > 0) {
+            pickAndTrack(pool, 4);
+            break;
+          }
+        }
+      } else if (game.currentSeries === 'A' && game.championships >= 1) {
+        pickAndTrack('C', 1);
+        pickAndTrack('COPA', 3);
       } else {
         if (game.currentSeries === 'D') {
+          pickAndTrack('A', 2);
+          pickAndTrack('B', 2);
+        } else if (game.currentSeries === 'C') {
+          pickAndTrack('A', 2);
+          pickAndTrack('B', 1);
+          pickAndTrack('C', 1);
+        } else if (game.currentSeries === 'B') {
           pickAndTrack('A', 1);
           pickAndTrack('B', 2);
           pickAndTrack('C', 1);
-        } else if (game.currentSeries === 'C') {
-          pickAndTrack('A', 1);
-          pickAndTrack('B', 1);
-          pickAndTrack('C', 2);
-        } else if (game.currentSeries === 'B') {
-          pickAndTrack('B', 1);
-          pickAndTrack('C', 3);
         } else {
+          pickAndTrack('B', 1);
           pickAndTrack('C', 2);
-          pickAndTrack('COPA', 2);
+          pickAndTrack('COPA', 1);
         }
       }
 
@@ -1716,7 +1745,7 @@
             `<strong>Fim de jogo.</strong> Você fez ${hits}/${totalInRound} e permaneceria na divisão. Não restam clubes inéditos.`,
             'Salvar resultado',
             `Você terminou com <strong>${game.score}</strong> ponto(s), em <strong>${getSeriesName(game.currentSeries, game.championships)}</strong>, na rodada <strong>${game.round}</strong>.`,
-            { series: game.currentSeries, championships: game.championships, score: game.score, round: game.round },
+            { series: game.currentSeries, championships: game.championships, score: game.score, round: game.round, easyMode: game.easyMode },
             `Campanha encerrada por falta de escudos.`
           );
           return;
@@ -1730,7 +1759,7 @@
         `<strong>Fim de campanha.</strong> Você fez apenas ${hits}/${totalInRound} acertos e foi eliminado.`,
         'Salvar resultado',
         `Você terminou com <strong>${game.score}</strong> ponto(s), em <strong>${currentName}</strong>, na rodada <strong>${game.round}</strong>.`,
-        { series: game.currentSeries, championships: game.championships, score: game.score, round: game.round },
+        { series: game.currentSeries, championships: game.championships, score: game.score, round: game.round, easyMode: game.easyMode },
         `Campanha encerrada com <strong class="bad">eliminação</strong> na ${currentName}.`
       );
     }
@@ -1762,7 +1791,7 @@
     function stopCampaign() {
       const payload = game.nextRoundConfig
         ? { series: game.nextRoundConfig.nextSeries, championships: game.nextRoundConfig.champs, score: game.score, round: game.round }
-        : { series: game.currentSeries, championships: game.championships, score: game.score, round: game.round };
+        : { series: game.currentSeries, championships: game.championships, score: game.score, round: game.round, easyMode: game.easyMode };
       const stopLabel = getSeriesName(payload.series, payload.championships);
       finishCampaign(
         `<strong>Campanha encerrada pelo jogador.</strong> Você parou em ${stopLabel}, rodada ${game.round}, com ${game.score} ponto(s).`,
@@ -1788,6 +1817,7 @@
       game.nextRoundConfig = null;
       game.savePromptShown = false;
       game.pendingSavePayload = null;
+      game.easyMode = els.easyModeToggle.checked;
       resetPools();
       drawRound();
       closeModal();
@@ -1798,6 +1828,9 @@
     }
 
     els.restartBtn.addEventListener('click', startNewGame);
+    els.easyModeToggle.addEventListener('change', () => {
+      game.easyMode = els.easyModeToggle.checked;
+    });
     els.continueBtn.addEventListener('click', proceedToNextRound);
     els.stopBtn.addEventListener('click', stopCampaign);
     els.saveScoreBtn.addEventListener('click', saveScore);
