@@ -1228,9 +1228,9 @@
       return game.availablePool.A.length + game.availablePool.B.length + game.availablePool.C.length + game.availablePool.COPA.length;
     }
 
-    function pickFromPool(seriesType, amount, forbiddenStates) {
+    function pickFromPool(seriesType, amount, forbiddenStates, strict = false) {
       const picked = [];
-      const poolOrder = [seriesType, 'COPA', 'C', 'B', 'A']; 
+      const poolOrder = strict ? [seriesType] : [seriesType, 'COPA', 'C', 'B', 'A'];
       while (amount > 0) {
         let found = false;
         for (const type of poolOrder) {
@@ -1255,7 +1255,7 @@
             }
           }
         }
-        if (!found) {
+        if (!found && !strict) {
           for (const type of poolOrder) {
             if (game.availablePool[type] && game.availablePool[type].length > 0) {
               const clubIdx = game.availablePool[type].pop();
@@ -1267,7 +1267,7 @@
             }
           }
         }
-        if (!found) break; 
+        if (!found) break;
       }
       return picked;
     }
@@ -1288,11 +1288,14 @@
 
       if (game.easyMode) {
         // Modo amador: preenche os 4 slots em ordem A → B → C → COPA
-        // sem jamais pular para COPA antecipadamente
+        // strict=true impede fallback para outros pools dentro de pickFromPool
+        const pickStrict = (type, amount) => {
+          picked.push(...pickFromPool(type, amount, forbiddenStates, true));
+        };
         for (const pool of ['A', 'B', 'C', 'COPA']) {
           if (picked.length >= 4) break;
           if (game.availablePool[pool].length > 0) {
-            pickAndTrack(pool, 4 - picked.length);
+            pickStrict(pool, 4 - picked.length);
           }
         }
       } else if (game.currentSeries === 'A' && game.championships >= 1) {
