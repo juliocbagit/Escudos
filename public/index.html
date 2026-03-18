@@ -1164,6 +1164,7 @@
             series: normalizeSeries(payload.series ?? game.currentSeries),
             championships: Math.max(0, Number(payload.championships ?? game.championships) || 0),
             round: Number(payload.round ?? game.round),
+            easyMode: Boolean(payload.easyMode ?? game.easyMode),
           }),
         });
         const data = await response.json().catch(() => ({}));
@@ -1286,11 +1287,12 @@
       };
 
       if (game.easyMode) {
-        // Modo amador: esgota os pools em ordem A → B → C → COPA
+        // Modo amador: preenche os 4 slots em ordem A → B → C → COPA
+        // sem jamais pular para COPA antecipadamente
         for (const pool of ['A', 'B', 'C', 'COPA']) {
+          if (picked.length >= 4) break;
           if (game.availablePool[pool].length > 0) {
-            pickAndTrack(pool, 4);
-            break;
+            pickAndTrack(pool, 4 - picked.length);
           }
         }
       } else if (game.currentSeries === 'A' && game.championships >= 1) {
@@ -1315,8 +1317,10 @@
         }
       }
 
-      while (picked.length < 4 && remainingClubCount() > 0) {
-        pickAndTrack('COPA', 1);
+      if (!game.easyMode) {
+        while (picked.length < 4 && remainingClubCount() > 0) {
+          pickAndTrack('COPA', 1);
+        }
       }
 
       picked = shuffle(picked);
